@@ -1,5 +1,5 @@
 <figure>
-  <img src="https://github.com/konovalovdmitry/catsnap/blob/master/picture.PNG" />
+  <img src="https://github.com/konovalovdmitry/catsnap/blob/master/picture.PNG" width="500"/>
 </figure>
 
 ## ABOUT
