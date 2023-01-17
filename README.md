@@ -27,7 +27,7 @@ cd kd_splicing
 pip install -r requirements.txt
 ```
 
-## How to
+## Prepare environment
 
 Download database source files
 
@@ -36,13 +36,14 @@ python -m kd_splicing.database.download_refseq_genome
 python -m kd_splicing.database.download_genbank
 ```
 
-Extract sequence files and build blast and sqllite db
+Extract sequence files and build blast and internal file index
 
 ```
 python -m kd_splicing.database.extract
 ```
+## How to
 
-Make single search request
+Make single ncbi accession mode search request.  Results will be written into kd_splicing/data/ folder. 
 
 ```
 
@@ -55,14 +56,28 @@ file_db = filedb.FileDB.create(FILE_DB_PATH)
 detector = ml.Detector.load(DETECTOR_PATH)
 helpers.search(file_db, p, detector, ["NP_200130.1, NP_001078750.1"], blast_db, isoforms_to_duplicates=file_db.isoform_to_duplicates)
 ```
-
-Start svelte frontend
+                                                                   
+Make single sequence mode search request
 
 ```
-npm run dev
+
+helpers.search_custom(file_db, p, detector, gene_seq = gene_seq, iso1_seq = iso1_seq, iso2_seq = iso2_seq, blast_db_path = blast_db)
+
 ```
+                                                                   
+Whole genome search. Depending on hardware can take a lot of time. 
+```
+python -m kd_splicing.full_run                                                            
 
+```
+                                                                   
+## Key files
 
+* Extracting ncbi archive files [kd_splicing.database.archive](https://github.com/kdcd/catsnap/blob/master/kd_splicing/kd_splicing/database/archive.py)
+* Running BLAST [kd_splicing.blast](https://github.com/kdcd/catsnap/blob/master/kd_splicing/kd_splicing/blast.py)
+* Calculating ml features [kd_splicing.features](https://github.com/kdcd/catsnap/blob/master/kd_splicing/kd_splicing/features.py)                                       
+* Writing results [kd_splicing.dump](https://github.com/kdcd/catsnap/blob/master/kd_splicing/kd_splicing/dump.py)
+                                                                   
 ## CITATION
 
 If you find our work useful, please cite ...
