@@ -1,5 +1,5 @@
-from collections import defaultdict, Sequence
-from typing import List, Optional, Any, Dict
+from collections import defaultdict
+from typing import List, Optional, Any, Dict, Sequence
 
 import numpy as np
 import pandas as pd
@@ -34,16 +34,16 @@ def from_nested(tables: List[pd.DataFrame], index_names: List[Any]) -> List[Any]
     def get_ancestors(table_id: int, row: Dict[str, Any]) -> List[Any]:
         return ancestors[get_key(table_id, index_names[table_id], row)]
 
-    def add_ancestor(table_id: int, row: Dict[str, Any]) -> None:
+    def add_ancestor(table_id: int, row: Any) -> None:
         ancestors[get_key(table_id, index_names[table_id], row)].append(row)
 
     result = []
 
-    for i, index_name in zip(range(1, len(tables)), index_names):
+    for i, _ in zip(range(1, len(tables)), index_names):
         for row in tables[i].to_dict(orient="records"):
             add_ancestor(i - 1, row)
 
-    def nested_row(table_id: Any, row: Dict[str, Any]) -> Any:
+    def nested_row(table_id: Any, row: Any) -> Any:
         line = (row_to_str_list(row.values()), table_id + 1)
         if table_id + 1 >= len(tables):
             return [line]
@@ -76,9 +76,9 @@ def from_df(df: pd.DataFrame) -> Any:
     height, width = df.shape
     if isinstance(df.index, MultiIndex):
         index = []
-        index_width = len(df.index.levels)
+        index_width = len(df.index.levels) # type: ignore
         for i in range(index_width):
-            index.append(df.index.levels[i][df.index.labels[i]])
+            index.append(df.index.levels[i][df.index.labels[i]]) # type: ignore
         rows = df.values.tolist()
         for index_row, row in zip(np.array(index).transpose(), rows):
             values.append(row_to_str_list(list(index_row) + row))
@@ -91,9 +91,9 @@ def from_df(df: pd.DataFrame) -> Any:
 
     columns_height = 1
     if isinstance(df.columns, MultiIndex):
-        columns_height = len(df.columns.levels)
+        columns_height = len(df.columns.levels) # type: ignore
         for i in range(columns_height):
-            columns.append(row_to_str_list([' '] * index_width + list(df.columns.levels[i][df.columns.labels[i]])))
+            columns.append(row_to_str_list([' '] * index_width + list(df.columns.levels[i][df.columns.labels[i]]))) # type: ignore
     else:
         columns = [[' '] * index_width + list(df.columns)]
 

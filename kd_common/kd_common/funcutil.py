@@ -1,14 +1,15 @@
-import collections
-from typing import List, Union, Any, Generator, Set, Sequence, TypeVar, Optional, Tuple, Iterable
+from typing import List, Union, Any, Set, TypeVar, Optional, Tuple, Iterable
 from types import ModuleType, FunctionType
 from gc import get_referents
 import sys
 
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
-def to_list(seq: Optional[Union[List[T], Tuple[T, ...], Set[T], str]], unique_flag: bool = False) -> List[Union[T, str]]:
+def to_list(
+    seq: Optional[Union[List[T], Tuple[T, ...], Set[T], str]], unique_flag: bool = False
+):
     if seq is None:
         return []
 
@@ -30,9 +31,10 @@ def unique(sequence: Iterable[T]) -> List[T]:
 
 _BLACKLIST = type, ModuleType, FunctionType
 
+
 def getsize(obj: Any) -> int:
     if isinstance(obj, _BLACKLIST):
-        raise TypeError('getsize() does not take argument of type: '+ str(type(obj)))
+        raise TypeError("getsize() does not take argument of type: " + str(type(obj)))
     seen_ids: Set[Any] = set()
     size = 0
     objects = [obj]
@@ -46,7 +48,8 @@ def getsize(obj: Any) -> int:
         objects = get_referents(*need_referents)
     return size
 
-def flatten(l):
+
+def flatten(l: Any):
     if isinstance(l, float) or l is None:
         return []
     for el in l:

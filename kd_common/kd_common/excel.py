@@ -1,4 +1,4 @@
-from typing import List, Any, Optional
+from typing import List, Any, Optional, cast
 
 import pandas as pd
 import numpy as np
@@ -14,11 +14,18 @@ def max_length(lines: str) -> int:
     return max((len(line) for line in lines.splitlines()), default=0)
 
 
-def _write(writer: pd.ExcelWriter, df: pd.DataFrame, sheet_name: str, levels: Optional[List[Any]] = None) -> None:
+def _write(
+    writer: pd.ExcelWriter,
+    df: pd.DataFrame,
+    sheet_name: str,
+    levels: Optional[List[Any]] = None,
+) -> None:
     if df.empty:
         return
-    col_len = [df[col].astype(str).apply(
-        max_length).quantile(0.95) for col in df.columns]
+    col_len = [
+        cast(float, df[col].astype(str).apply(max_length).quantile(0.95))
+        for col in df.columns
+    ]
     col_len = np.clip(col_len, 20, 120)
 
     df.to_excel(writer, sheet_name=sheet_name, index=False)
@@ -31,16 +38,20 @@ def _write(writer: pd.ExcelWriter, df: pd.DataFrame, sheet_name: str, levels: Op
     if levels is not None:
         for idx, level in enumerate(levels):
             worksheet.set_row(
-                idx + 1, None, None, {'level': level, "hidden": True, "collapsed": True})
+                idx + 1, None, None, {"level": level, "hidden": True, "collapsed": True}
+            )
 
 
 def write(df: pd.DataFrame, path: str, levels: Optional[List[Any]] = None) -> None:
     _logger.info("Start writing to excel " + path)
-    with pd.ExcelWriter(path, engine='xlsxwriter') as w:
+    with pd.ExcelWriter(path, engine="xlsxwriter") as w: # type: ignore
         _write(w, df, "sheet", levels)
     _logger.info("Finish writing to excel " + path)
 
-def write_nested_df(data_frames: List[pd.DataFrame], index_names: List[Any], table_path: str) -> None:
+
+def write_nested_df(
+    data_frames: List[pd.DataFrame], index_names: List[Any], table_path: str
+) -> None:
     df, levels = table.df_from_nested(data_frames, index_names)
     df["level"] = levels
     write(df, table_path, levels)

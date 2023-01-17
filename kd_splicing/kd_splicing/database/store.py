@@ -6,12 +6,12 @@ import sys
 import uuid
 from collections import Counter, defaultdict
 from copy import copy, deepcopy
-from typing import Any, Dict, List, Mapping, Optional, Set, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Set, Tuple, Callable, Union
 from dataclasses import dataclass, field
 from kd_splicing.database import feature_tables
+from pathlib import Path
 
 import pandas as pd
-from memory_profiler import profile
 from tqdm import tqdm
 
 from kd_common import funcutil, logutil, pathutil
@@ -23,13 +23,17 @@ from kd_splicing.location.utils import bounding_box, intersection, is_equal, sym
 _logger = logutil.get_logger(__name__)
 
 
-def _read_db_part(file_path: str) -> DBPart:
+def read_db_part(file_path: str) -> DBPart:
     try:
         with gzip.GzipFile(file_path, "r") as f:
             return pickle.load(f)  # type: ignore
     except Exception as e:
         os.remove(str(file_path))
         _logger.info(f"Read exception {file_path}")
+
+def archive_path_to_extracted(src_gb_file: str) -> str:
+    p = Path(src_gb_file)
+    return str(Path(p.parent.parent) / f"extracted/{p.name}.pgz")
 
 def _convert_location(loc: Location) -> Tuple[Tuple[int, int, Optional[int]], ...]:
     return tuple(
@@ -47,7 +51,7 @@ def add_part(db: DB, part: DBPart) -> None:
 def merge_files(db_parts_files: List[str]) -> DB:
     db = DB()
     for src_file in db_parts_files:
-        db_part = _read_db_part(src_file)
+        db_part = read_db_part(src_file)
         if len(db_part.isoforms) == 0: continue
         add_part(db, db_part)
         del db_part
@@ -136,15 +140,23 @@ def add_isoform_rna_links(db: DB, refseq_protein_id_to_transcript_id: Mapping[st
     _logger.info(f"added_rna_to_isoform_links: {added_rna_to_isoform_links}")
 
 
-def merge_separatly(refseq_folder: str, genbank_folder: str, ) -> DB:
+def merge_separatly(
+    db: DB,
+    refseq_folders: List[str], 
+    genbank_folder: str, 
+    add_part_method: Callable[[Any, Any], None] = add_part, 
+) -> DB:
+    refseq_files = []
+    key_to_refseq_features = {}
+    for refseq_folder in refseq_folders:
+        refseq_files.extend(pathutil.get_sub_files(os.path.join(refseq_folder, "extracted")))
+        key_to_refseq_features.update(get_key_to_file(pathutil.get_sub_files(os.path.join(refseq_folder, "feature_tables"))))
+
     genbank_files = pathutil.get_sub_files(os.path.join(genbank_folder, "extracted"))
-    refseq_files = pathutil.get_sub_files(os.path.join(refseq_folder, "extracted"))
     key_to_genbank_report = get_key_to_file(pathutil.get_sub_files(os.path.join(genbank_folder, "reports")))
-    key_to_refseq_features = get_key_to_file(pathutil.get_sub_files(os.path.join(refseq_folder, "feature_tables")))
     key_to_genbank_features = get_key_to_file(pathutil.get_sub_files(os.path.join(genbank_folder, "feature_tables")))
     absent_genbank_features = 0
     absent_refseq_features = 0
-    db = DB()
     for key, refseq_file, genbank_file in tqdm(make_pairs(refseq_files, genbank_files)):
         # if key != "001742945": continue
         
@@ -176,7 +188,7 @@ def merge_separatly(refseq_folder: str, genbank_folder: str, ) -> DB:
             merge_genes(part, genbank_to_refseq)
             
         leave_only_with_splicing(part)
-        add_part(db, part)
+        add_part_method(db, part)
 
         del part
     print("absent_refseq_features", absent_refseq_features, "absent_genbank_features", absent_genbank_features)
@@ -409,7 +421,7 @@ def write(db: DB, merged_store_path: str) -> None:
         pickler.dump(db)
 
 
-def get_isoform_to_duplicates(db: DB) -> Mapping[uuid.UUID, List[uuid.UUID]]:
+def get_isoform_to_duplicates(db: Union[DB, DBPart]) -> Mapping[uuid.UUID, List[uuid.UUID]]:
     gene_to_isoforms: Dict[uuid.UUID, List[Isoform]] = defaultdict(list)
     for iso in tqdm(db.isoforms.values()):
         gene_to_isoforms[iso.gene_uuid].append(iso)

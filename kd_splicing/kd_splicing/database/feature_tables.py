@@ -30,7 +30,7 @@ def read_genbank_protein_id_to_rna_uuid(db: DB, table_file: str) -> Mapping[str,
 
 
     df = pd.read_csv(tmp_file, sep="\t")
-    print(df)
+    # print(df)
     df = df.rename(columns = {"# feature": "feature"})
     rnas = df[df.feature == "mRNA"]
     result = {}

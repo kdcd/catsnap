@@ -17,9 +17,14 @@ import pickle
 logger = logutil.get_logger(__name__)
 
 
-root = "https://ftp.ncbi.nlm.nih.gov/genomes/refseq/plant/"
+roots = [
+    # "https://ftp.ncbi.nlm.nih.gov/genomes/refseq/plant/",
+    "https://ftp.ncbi.nlm.nih.gov/genomes/refseq/vertebrate_other/",
+    "https://ftp.ncbi.nlm.nih.gov/genomes/refseq/vertebrate_mammalian/",
+    "https://ftp.ncbi.nlm.nih.gov/genomes/refseq/invertebrate/",
+]
 # timestamp = pathutil.get_timestamp_str()
-timestamp = "2021_02_16_17_37_56"
+timestamp = "2022_01_22_08_43_34"
 refseq_folder = pathutil.create_folder(paths.FOLDER_REFSEQ, timestamp)
 archive_folder = pathutil.create_folder(refseq_folder, "archive")
 feature_tables_folder = pathutil.create_folder(refseq_folder, "feature_tables")
@@ -54,7 +59,15 @@ def _download(record: Record) -> None:
     except Exception as e:
         logger.exception(f"Couldn't remove file {archive_file_path}")
 
-def _get_record(plant_name: str) -> Record:
+
+@dataclass 
+class RootAndPlantName:
+    root: str
+    plant_name: str
+
+def _get_record(root_plant_name: RootAndPlantName) -> Record:
+    root = root_plant_name.root
+    plant_name = root_plant_name.plant_name
     try:
         plant = root + plant_name
 
@@ -100,21 +113,23 @@ def _get_record(plant_name: str) -> Record:
 
 
 def _get_records() -> None:
-    html = urlopen(root).read().decode('utf-8')
-    soup = BeautifulSoup(html, features="html.parser")
+    records = []
+    for root in roots: 
+        html = urlopen(root).read().decode('utf-8')
+        soup = BeautifulSoup(html, features="html.parser")
 
-    plant_names = [
-        a["href"]
-        for a in soup.find_all('a', href=True) 
-    ][1:]
-    
-    # result: List[Record] = []
-    # for plant_name in tqdm(plant_names):
-    #     if plant_name == "Setaria_viridis/":
-    #         print(_get_record(plant_name))
+        root_plant_names = [
+            RootAndPlantName(root, a["href"])
+            for a in soup.find_all('a', href=True) 
+        ][1:]
+        
+        # result: List[Record] = []
+        # for plant_name in tqdm(plant_names):
+        #     if plant_name == "Setaria_viridis/":
+        #         print(_get_record(plant_name))
 
-    with get_context("spawn").Pool() as p:
-        records = list(tqdm(p.imap_unordered(_get_record, plant_names), total=len(plant_names)))
+        with get_context("spawn").Pool() as p:
+            records.extend(list(tqdm(p.imap_unordered(_get_record, root_plant_names), total=len(root_plant_names))))
 
     absent_archive_files = [
         record.plant_name

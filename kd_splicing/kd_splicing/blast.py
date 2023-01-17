@@ -6,7 +6,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from functools import partial
 from os.path import dirname, join
-from typing import Dict, List, Mapping, Set
+from typing import Dict, List, Mapping, Set, Optional
 
 import pandas as pd
 from tqdm import tqdm
@@ -16,6 +16,7 @@ from kd_splicing import database, sequences
 from kd_splicing.location.models import ConvertSegment
 from kd_splicing.location.utils import get_alignment_segments, symmetric_difference
 from kd_splicing.models import Queries
+
 
 _logger = logutil.get_logger(__name__)
 
@@ -76,6 +77,24 @@ def create_db(db: database.models.DB, db_path: str, deduplicate_isoforms: bool =
     ))
 
 
+def create_db_from_file_db(db: database.filedb.FileDB, db_path: str, filter: Optional[Set[uuid.UUID]] = None) -> None:
+    _logger.info("Start creating BLAST DB")
+    pathutil.reset_folder(dirname(db_path))
+
+    
+    with open(db_path, "w") as f:
+        for isoform in tqdm(db.isoforms.values()):
+            if filter is None or isoform.uuid in filter:
+                f.write(">" + str(isoform.uuid) + "\n")
+                f.write(isoform.translation + "\n")
+
+    _logger.info("Start Makeblastdb")
+    _logger.info(subprocess.call(
+        ["makeblastdb", "-in", db_path, "-dbtype", "prot"]
+    ))
+
+
+
 def _queries_folder(launch_folder: str) -> str:
     return pathutil.create_folder(launch_folder, "blast_queries")
 
@@ -98,7 +117,7 @@ def _results_path(launch_folder: str, group: int) -> str:
 def run_single(group: int, launch_folder: str, db_path: str, max_target_seqs: int) -> None:
     blast_args = [
         "blastp", "-query", _query_path(launch_folder, group), "-db", db_path,
-        "-out", _results_path(launch_folder, group),  "-outfmt", "13",
+        "-out", _results_path(launch_folder, group),  "-outfmt", "13", "-num_threads", "19",
         "-max_target_seqs", str(max_target_seqs), "-evalue", "0.000000001"
     ]
     _logger.info("Start blast")

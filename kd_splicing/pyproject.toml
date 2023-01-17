@@ -1,0 +1,6 @@
+[project]
+name = "kd_splicing"
+dynamic = ["version"]
+
+[tool.setuptools]
+py-modules = ["kd_splicing"]

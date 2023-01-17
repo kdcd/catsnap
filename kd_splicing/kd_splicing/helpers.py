@@ -13,9 +13,20 @@ from kd_splicing.dataset.models import Dataset
 from kd_splicing.dump import dump
 from kd_splicing.models import FormattedResults, IsoformTuple, Match, SimpleMatch, Queries
 from kd_splicing.models import SearchStatus
+from kd_splicing.exception import CustomException
 import itertools
 from tqdm import tqdm
 import json
+import uuid
+from typing import Optional
+from dataclasses import dataclass, field
+import re
+from kd_splicing.location.models import Location, LocationPart
+from kd_splicing.models import FormattedResultsQuery
+from kd_splicing import muscle, kalign
+from kd_splicing.database import models
+from Bio.Seq import Seq
+from kd_splicing import paths
 
 _logger = logutil.get_logger(__name__)
 
@@ -37,19 +48,41 @@ def find_in_queries(
 #############
 # Common
 #############
+@dataclass 
+class FakeGene:
+    seq: str
+    aligned: Optional[str] = None
+    guid: uuid.UUID = field(default_factory=uuid.uuid4)
+    location: Optional[Location] = None
+@dataclass 
+class FakeIso:
+    seq: str
+    aligned: Optional[str] = None
+    guid: uuid.UUID = field(default_factory=uuid.uuid4)
+    location: Optional[Location] = None
 
+def get_location_from_alignment(seq: str):
+        start = None
+        loc = Location()
+        for i in range(len(seq)):
+            if start is None:
+                if seq[i] != "-":
+                    start = i
+            else:
+                if seq[i] == "-":
+                    loc.parts.append(LocationPart(start, i, 1))
+                    start = None
+        return loc
+def normalize_seq(s: str):
+    return re.sub(r'[^ATGC]', '', s.upper())
 def str_to_isoform_tuple(db: database.models.DB, protein_ids_str: str) -> IsoformTuple:
     protein_ids = [protein_id.strip()
                    for protein_id in protein_ids_str.split(",")]
     assert len(protein_ids) == 2
     return IsoformTuple(
         db.protein_id_to_isoform[protein_ids[0]], db.protein_id_to_isoform[protein_ids[1]])
-
-
 def isoform_tuple_to_protein_ids(db: database.models.DB, iso_tuple: IsoformTuple) -> str:
     return f"{db.isoforms[iso_tuple.a].protein_id},{db.isoforms[iso_tuple.b].protein_id}"
-
-
 def tuples_to_queries(tuples: List[IsoformTuple], num_groups: int = 20) -> Queries:
     isoforms = sorted(list(set(chain.from_iterable(
         (query_isoforms.a, query_isoforms.b)
@@ -70,8 +103,6 @@ def tuples_to_queries(tuples: List[IsoformTuple], num_groups: int = 20) -> Queri
         isoform_to_idx=isoform_to_idx,
         isoform_to_group=isoform_to_group,
     )
-
-
 def best_match_per_organism(matches: List[Match]) -> List[Match]:
     query_organism_to_match: Dict[Tuple[IsoformTuple, str], Match] = {}
     for m in matches:
@@ -93,15 +124,11 @@ def count_isoforms_per_organism(db: database.models.DB) -> None:
         organism_to_isoform_count[record.organism] += 1
     for key, value in sorted(organism_to_isoform_count.items(), key=lambda p: p[1]):
         print(key, ",", value)
-
-
 def calc_performance(matches: List[Match]) -> None:
     predicted = [m.predicted_positive for m in matches]
     correct = [m.positive for m in matches]
     _logger.info(
         f"Performance:\n{pd.Series(performance.binary_y_performance(correct, predicted))}")
-
-
 def db_organisms_stats(db: database.models.DB, db_folder: str) -> None:
     df = database.utils.to_df(db)
 
@@ -124,8 +151,6 @@ def db_organisms_stats(db: database.models.DB, db_folder: str) -> None:
     d5 = df[df["db_name_src"] == "genbank"]["organism"].value_counts().reset_index()
     excel.write(d5, os.path.join(pathutil.create_folder(
         db_folder, "stats"), os.path.basename(db_folder) + "_db_organisms_genbank_src.xlsx"))
-
-
 def db_missed_files(p: pipeline.Pipeline) -> None:
     def prepare(s: str) -> str:
         s = os.path.basename(s)
@@ -159,8 +184,6 @@ def single_cross_validation_and_dump(db: database.models.DB, launch_folder: str,
     calc_performance(test_ds)
     folder = pathutil.create_folder(launch_folder, "cross_validation")
     dump(db, folder, test_ds)
-
-
 def dump_single_query_simple_matches(
         db: database.models.DB,
         launch_folder: str,
@@ -177,8 +200,6 @@ def dump_single_query_simple_matches(
     matches = features.convert_matches({query_isoforms: simple_matches})
     dump(db, pathutil.create_folder(launch_folder,
                                     "matches_simple_single", protein_ids_str), matches)
-
-
 def calc_features_and_dump_single(
         db: database.models.DB,
         launch_folder: str,
@@ -204,6 +225,100 @@ def calc_features_and_dump_single(
 # Search
 #############
 
+def _align_multi(gene: FakeGene, iso1: FakeIso, iso2: FakeIso):
+    file_for_alignment = os.path.join(paths.FOLDER_DATA, "test.fa")
+    items = [gene, iso1, iso2]
+    id_to_item = {str(item.guid): item for item in items}
+    with open(file_for_alignment, "w") as f:
+        for item in [gene, iso1, iso2]:
+            f.write(">" + str(item.guid) + "\n")
+            f.write(item.seq + "\n")
+    alignment_file = muscle.run_single(file_for_alignment)
+    result = FormattedResultsQuery.from_file(alignment_file)
+    for item in result.items:
+        id_to_item[item.name].aligned = item.sequence
+        
+    for iso in items:
+        iso.location = get_location_from_alignment(iso.aligned) 
+def _align_pair(gene: FakeGene, iso: FakeIso):
+    file_for_alignment = os.path.join(paths.FOLDER_DATA, "test.fa")
+    items = [gene, iso]
+    id_to_item = {str(item.guid): item for item in items}
+    with open(file_for_alignment, "w") as f:
+        for item in [gene, iso]:
+            f.write(">" + str(item.guid) + "\n")
+            f.write(item.seq + "\n")
+    alignment_file = muscle.run_single(file_for_alignment)
+    result = FormattedResultsQuery.from_file(alignment_file)
+    for item in result.items:
+        id_to_item[item.name].aligned = item.sequence
+        
+    for i in items:
+        i.location = get_location_from_alignment(i.aligned) 
+
+def search_custom(
+    file_db: database.models.DB,
+    p: pipeline.Pipeline,
+    detector: ml.Detector,
+    gene_seq: str, 
+    iso1_seq: str, 
+    iso2_seq: str,
+    blast_db_path: str,
+    status: SearchStatus = SearchStatus.construct(progress = 0, description = ""),
+    isoforms_to_duplicates: Optional[Mapping[uuid.UUID, List[uuid.UUID]]] = None,
+):
+    print("blastdb", blast_db_path)
+    gene = FakeGene(seq = normalize_seq(gene_seq))
+    iso1 = FakeIso(seq = normalize_seq(iso1_seq))
+    iso2 = FakeIso(seq = normalize_seq(iso2_seq))
+
+    # _align_multi(gene, iso1, iso2)
+    _align_pair(gene, iso1)
+    _align_pair(gene, iso2)
+    items = [gene, iso1, iso2]
+        
+    file = models.DBFile(
+        uuid = uuid.uuid4(), 
+        src_gb_file = "", 
+        db_name = "",
+    )
+    record = models.Record(
+        uuid = uuid.uuid4(), 
+        file_uuid = file.uuid, 
+        sequence_id = "", 
+        organism = "DefaultOrganism", 
+        taxonomy = ["DefaultTaxonomy"], 
+    )
+    gene = models.Gene(
+        uuid = gene.guid, 
+        record_uuid = record.uuid, 
+        locus_tag = "DefaultLocusTag",
+        gene_id = "", 
+        db_xref = "", 
+        location = gene.location, 
+    )
+    isoforms = [
+        models.Isoform(
+            uuid = iso.guid, 
+            gene_uuid = gene.uuid, 
+            protein_id = str(iso.guid), 
+            product = "DefaultProduct", 
+            location = iso.location, 
+            translation = str(Seq(iso.seq).translate()), 
+            src_gene_uuid = None, 
+            rna_uuid = None, 
+            
+        ) for iso in items[1:]
+    ]
+    file_db.add_mem_isoforms(
+        file = file, 
+        record = record, 
+        gene = gene, 
+        isoforms = isoforms,
+    )
+
+    search(file_db, p, detector, [",".join(str(i.uuid) for i in isoforms)], blast_db_path, status = status, isoforms_to_duplicates = isoforms_to_duplicates)
+
 def search(
     db: database.models.DB,
     p: pipeline.Pipeline,
@@ -218,7 +333,6 @@ def search(
     queries = tuples_to_queries(tuples, num_groups=1)
     name = ";".join(query_protein_ids_str)
     return search_queries(db, p, detector, queries, name, blast_db_path, status, isoforms_to_duplicates)
-
 def search_queries(
     db: database.models.DB,
     p: pipeline.Pipeline,
@@ -244,7 +358,6 @@ def search_queries(
     status.set(50, "Preparing results")
     dump(db, result_folder, matches, isoforms_to_duplicates)
     return result_folder
-
 def matches_to_df(
     db: database.models.DB,
     isoforms_to_duplicates: Mapping[uuid.UUID, List[uuid.UUID]],
@@ -307,7 +420,6 @@ def matches_to_df(
         data.append(row)
     df = pd.DataFrame(data)
     return df
-
 def get_isoforms_to_file(launch_folder: str) -> Mapping[uuid.UUID, str]:
     results_folder = pathutil.create_folder(launch_folder, "blast_results")
     isoforms_to_file: Dict[uuid.UUID, str] = {}

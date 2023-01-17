@@ -1,5 +1,7 @@
 -e file:../kd_common
--r file:../kd_common/requirements.txt
+-r ../kd_common/requirements.txt
+
+-e file:../kd_splicing
 
 biopython
 pandas
@@ -7,4 +9,5 @@ tqdm
 scikit-learn
 beautifulsoup4
 sqlitedict
-zipfile
+jupyterlab
+# zipfile

@@ -20,6 +20,7 @@ from functools import partial
 from os.path import basename
 from typing import Optional, Tuple, List, Mapping, Any, Dict
 from dataclasses import dataclass, field
+from tqdm import tqdm
 import bz2
 import gzip
 
@@ -192,6 +193,11 @@ def process_features(db: DBPart, db_file: DBFile, record: Record, seq_record: Se
         try:
             if feature.type == "gene":
                 gene = _create_gene(db, feature, record, seq_record)
+                if gene.db_xref == "GeneID:115677": # TODO: remove
+                    print(seq_record)
+                    print(seq_record.id)
+                    print(feature)
+                    print(gene)
                 genes[gene.uuid] = gene
                 if gene.locus_tag:
                     locustag2gene[gene.locus_tag] = gene
@@ -203,6 +209,13 @@ def process_features(db: DBPart, db_file: DBFile, record: Record, seq_record: Se
                 raw_isoform = _create_raw_isoform(db, feature, seq_record)
                 if not raw_isoform:
                     continue
+
+                if raw_isoform.protein_id == "NP_443178.2": # TODO: remove
+                    print(seq_record.id)
+                    print(feature)
+                    print(feature.location)
+                    print(feature.location_operator)
+                    print(raw_isoform.location)
 
                 gene = None
                 if raw_isoform.gene_locus_tag:
@@ -247,11 +260,20 @@ def process_features(db: DBPart, db_file: DBFile, record: Record, seq_record: Se
             db.exception(
                 f"Exception happened in file:\n {db_file.src_gb_file}\n During processing feature:\n {feature}")
 
+
     db.stats["all_genes"] = len(genes)
     db.stats["all_isoforms"] = len(isoforms)
     db.isoforms.update(isoforms)
     db.genes.update(genes)
     db.rnas.update(rnas)
+
+    count = 0 # TODO: remove
+    for iso in isoforms.values():
+        if genes[iso.gene_uuid].db_xref == "GeneID:115677":
+            count += 1
+    if count > 0:
+        print("count", count)
+
 
 
 def process_file(src_gb_file: str, dst_file: str, db_name: str) -> None:
@@ -263,7 +285,9 @@ def process_file(src_gb_file: str, dst_file: str, db_name: str) -> None:
             db_name=db_name,
         )
         db.files[db_file.uuid] = db_file
-        for gb_record in Bio.SeqIO.parse(open(src_gb_file, "r"), "genbank"):
+        for gb_record in tqdm(Bio.SeqIO.parse(open(src_gb_file, "r"), "genbank")): # TODO: fix
+        # for gb_record in [Bio.SeqIO.index(src_gb_file, "genbank")["NW_003315909.1"]]:
+            # if gb_record.id != "NW_003315909.1": continue
             record = process_record(db, db_file, gb_record)
             process_features(db, db_file, record, gb_record)
 
@@ -301,7 +325,8 @@ def read(src_file: str, dst_folder: Optional[str], db_name: str, check_existence
             tmp_file)) if dst_folder is not None else None
 
         _logger.info(f"Extract file{tmp_file}")
-        extractutil.extract_file(src_file, tmp_file)
+        if not check_existence or not os.path.exists(tmp_file):
+            extractutil.extract_file(src_file, tmp_file)
 
         if dst_file:
             process_file(tmp_file, dst_file, db_name)
@@ -309,7 +334,7 @@ def read(src_file: str, dst_folder: Optional[str], db_name: str, check_existence
         if remove_extracted_file:
             os.remove(tmp_file)
     except Exception as e:
-        os.remove(src_file)
+        # os.remove(src_file)
         _logger.exception(f"Read exception {src_file}")
 
 

@@ -1,15 +1,12 @@
 from __future__ import annotations
-from enum import Enum, IntEnum
 
 import math
 
-from dataclasses import dataclass, field
 from typing import Tuple, List, Union
 
 from pydantic import BaseModel, Field
 
 import numpy as np
-
 
 class Point(BaseModel):
     x: float
@@ -114,13 +111,13 @@ class Box(BaseModel):
             y = (self.min_y + self.max_y) / 2,
         )
 
-    def extract_from(self, img: np.array) -> np.array:
+    def extract_from(self, img: np.ndarray) -> np.ndarray:
         if len(img.shape) == 2:
             return img[max(0, int(self.min_y)): int(self.max_y), max(0, int(self.min_x)): int(self.max_x)]
         return img[max(0, int(self.min_y)): int(self.max_y), max(0, int(self.min_x)): int(self.max_x), :]
 
     @staticmethod
-    def from_array(box: np.array) -> Box:
+    def from_array(box: np.ndarray) -> Box:
         return Box.construct(
             min_x=box[0],
             min_y=box[1],
@@ -128,7 +125,7 @@ class Box(BaseModel):
             max_y=box[3],
         )
     @staticmethod
-    def from_cv_array(bb: np.array) -> Box:
+    def from_cv_array(bb: np.ndarray) -> Box:
         return Box.construct(
             min_x=bb[0],
             min_y=bb[1],
@@ -136,7 +133,7 @@ class Box(BaseModel):
             max_y=bb[1] + bb[3],
         )
 
-    def to_array(self) -> np.array:
+    def to_array(self) -> np.ndarray:
         return np.array([int(self.min_x), int(self.min_y), int(self.max_x), int(self.max_y)])
 
     # def to_array(self) -> np.array:
@@ -203,7 +200,7 @@ class Box(BaseModel):
             max_y=self.max_y + dy
         )
 
-    def clip(self, shape: np.array) -> Box:
+    def clip(self, shape: np.ndarray) -> Box:
         return Box(
             min_x=max(self.min_x, 0),
             min_y=max(self.min_y, 0),
@@ -398,7 +395,7 @@ _RIGHT = 2
 _BOTTOM = 4
 _TOP = 8
 
-def _compute_out_code(x: float, y: float, r: np.array) -> int:
+def _compute_out_code(x: float, y: float, r: np.ndarray) -> int:
     code = _INSIDE         
 
     if x < r[0]:           # to the left of clip window
@@ -413,7 +410,7 @@ def _compute_out_code(x: float, y: float, r: np.array) -> int:
     return code
 
 
-def cohen_sutherland_line_clip(s: np.array, r: np.array) -> Tuple[np.array, bool]:
+def cohen_sutherland_line_clip(s: np.ndarray, r: np.ndarray) -> Tuple[np.ndarray, bool]:
     outcode0 = _compute_out_code(s[0], s[1], r)
     outcode1 = _compute_out_code(s[2], s[3], r)
     x0, y0, x1, y1 = s

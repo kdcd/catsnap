@@ -1,9 +1,8 @@
 import os
-import re
 import shutil
 from datetime import datetime
-from os.path import join, basename, exists, abspath, dirname
-from typing import List, Optional, Tuple
+from os.path import join,  exists, abspath
+from typing import List, Optional
 
 
 def get_timestamp_str() -> str:

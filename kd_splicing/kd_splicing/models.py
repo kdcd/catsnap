@@ -3,7 +3,6 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass, field
 from typing import List, Mapping, Any, Optional, Sequence
-import data
 import pydantic
 from pathlib import Path
 

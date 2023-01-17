@@ -13,16 +13,6 @@ from kd_common import logutil
 _logger = logutil.get_logger(__name__)
 
 
-@dataclass
-class Gene:
-    __slots__ = "uuid", "record_uuid", "locus_tag", "gene_id", "db_xref", "location"
-    uuid: uuid.UUID
-    record_uuid: uuid.UUID
-    locus_tag: Optional[str]
-    gene_id: Optional[str]
-    db_xref: Optional[str]
-    location: Location
-
 
 @dataclass
 class Isoform:  
@@ -46,11 +36,14 @@ class RNA:
     src_gene_uuid: Optional[uuid.UUID]
 
 @dataclass
-class DBFile:
-    __slots__ = "uuid", "src_gb_file", "db_name"
+class Gene:
+    __slots__ = "uuid", "record_uuid", "locus_tag", "gene_id", "db_xref", "location"
     uuid: uuid.UUID
-    src_gb_file: str
-    db_name: str
+    record_uuid: uuid.UUID
+    locus_tag: Optional[str]
+    gene_id: Optional[str]
+    db_xref: Optional[str]
+    location: Location
 
 
 @dataclass
@@ -62,6 +55,12 @@ class Record:
     organism: str
     taxonomy: List[str]
 
+@dataclass
+class DBFile:
+    __slots__ = "uuid", "src_gb_file", "db_name"
+    uuid: uuid.UUID
+    src_gb_file: str
+    db_name: str
 
 @dataclass
 class DBPart:

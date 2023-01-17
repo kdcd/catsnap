@@ -3,12 +3,13 @@ import json
 import logging
 import os
 import sys
+import time
 import traceback
 from distutils.util import strtobool
 from threading import local
 from copy import copy
 from inspect import istraceback
-from typing import Mapping, Any, List, Tuple, Type, Union, Dict
+from typing import Mapping, Any, List, Optional, Tuple, Type, Dict
 from types import TracebackType
 
 _locals = local()
@@ -43,22 +44,25 @@ def set_user_data(user_id: str, user_name: str) -> None:
     _locals.user_name = user_name
 
 
-def get_trace_id() -> str:
+def get_trace_id() -> Optional[str]:
     return getattr(_locals, 'trace_id', None)
 
 
-def get_datadog_trace_id() -> str:
+def get_datadog_trace_id() -> Optional[str]:
     return getattr(_locals, 'datadog_trace_id', None)
 
 
-def get_datadog_span_id() -> str:
+def get_datadog_span_id() -> Optional[str]:
     return getattr(_locals, 'datadog_span_id', None)
 
 
-def get_user_data() -> Tuple[str, str]:
+def get_user_data() -> Tuple[Optional[str], Optional[str]]:
     user_id = getattr(_locals, 'user_id', None)
     user_name = getattr(_locals, 'user_name', None)
     return user_id, user_name
+
+def get_data():
+    return getattr(_locals, 'data', None)
 
 
 def delete_trace_id() -> None:
@@ -103,7 +107,7 @@ COLORS = {
     'ERROR': RED
 }
 
-SIMPLE_FORMAT = "[%(asctime)s][%(name)-20s][%(levelname)-18s]  %(message)s (%(filename)s:%(lineno)d:%(funcName)s)"
+SIMPLE_FORMAT = "[%(asctime)s][%(threadName)s][%(name)-20s][%(levelname)-10s]  %(message)s (%(filename)s:%(lineno)d:%(funcName)s)"
 FORMAT = "[%(asctime)s][$BOLD%(name)-20s$RESET][%(levelname)-18s]  %(message)s ($BOLD%(filename)s$RESET:%(lineno)d:%(funcName)s)"
 custom_format = {
     'host': '%(hostname)s',
@@ -177,16 +181,32 @@ class SimpleSTDErrorFormatter(object):
 
 
 def set_global_lebel(level: str) -> None:
-    assert level in logging._nameToLevel, f"level = {level} not found"
+    assert level in logging._nameToLevel, f"level = {level} not found" # type: ignore
     for logger in _logger_list:
-        logger.setLevel(logging._nameToLevel[level])
+        logger.setLevel(logging._nameToLevel[level]) # type: ignore
 
+
+# def wrap_log_method(original_info):
+#     def wrapped(message, *args, **kwargs):
+#         stack = inspect.stack()
+
+#         # stack[1] gives previous function ('info' in our case)
+#         # stack[2] gives before previous function and so on
+#         print(stack)
+
+#         fn = stack[2][1]
+#         ln = stack[2][2]
+#         func = stack[2][3]
+
+#         return original_info(f"{fn}, {ln}, {func} {message}", *args, **kwargs)
+#     return wrapped
 
 def get_logger(module_name: str, redirect_stderr: bool = True, add_datadog_handler: bool = False) -> logging.Logger:
     logger = _logger_map.get(module_name)
     if logger:
         return logger 
     logger = logging.getLogger(module_name)
+    # logger.info = wrap_log_method(logger.info)
     logger.setLevel(logging.DEBUG)
 
     console = logging.StreamHandler(sys.stdout)
@@ -204,6 +224,14 @@ def get_logger(module_name: str, redirect_stderr: bool = True, add_datadog_handl
     _logger_list.append(logger)
     _logger_map[module_name] = logger
     return logger
+
+def remove_handlers():
+    for logger in _logger_list:
+        for hdlr in logger.handlers[:]: 
+            logger.removeHandler(hdlr)
+
+def get_loggers_list():
+    return _logger_list
 
 
 def add_file_handler(file_path: str) -> None:
@@ -253,10 +281,13 @@ class SimpleJsonFormatter(logging.Formatter):
             'module': str(record.module),
             'level': str(self.level_to_name_mapping[record.levelno]),
             'path': str(record.pathname),
-            'trace_id': get_trace_id(),
-            'datadog_trace_id': get_datadog_trace_id(),
-            'datadog_span_id': get_datadog_span_id(),
+            # 'trace_id': get_trace_id(),
+            # 'datadog_trace_id': get_datadog_trace_id(),
+            # 'datadog_span_id': get_datadog_span_id(),
         }
+        # data = get_data()
+        # if data is not None:
+        #     msg = {"data": data}
         user_id, user_name = get_user_data()
         if user_id and user_name:
             msg.update({
@@ -281,3 +312,12 @@ class SimpleJsonFormatter(logging.Formatter):
                 self, record.exc_info)
 
         return str(json.dumps(msg, default=self._default_json_handler))
+
+
+class ThreadLogFilter(logging.Filter):
+    def __init__(self, thread_name: str):
+        logging.Filter.__init__(self)
+        self.thread_name = thread_name
+
+    def filter(self, record: logging.LogRecord):
+        return record.threadName == self.thread_name

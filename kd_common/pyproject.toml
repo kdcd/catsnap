@@ -1,0 +1,6 @@
+[project]
+name = "kd_common"
+dynamic = ["version"]
+
+[tool.setuptools]
+py-modules = ["kd_common"]

@@ -147,8 +147,8 @@ def dump_to_fasta(db: database.models.DB, launch_folder: str, matches: List[Matc
     for m in matches:
         query_isoforms_to_matches[m.query_isoforms].append(m)
 
-    results_folder = pathutil.create_folder(launch_folder, "results", "best_ortholog_in_a_species")
-    results_full_folder = pathutil.create_folder(launch_folder, "results", "all_orthologs_in_a_species")
+    results_folder = pathutil.create_folder(launch_folder, "results", "best_hit_in_a_species")
+    results_full_folder = pathutil.create_folder(launch_folder, "results", "all_hits_in_a_species")
     for query_isoforms, query_matches in query_isoforms_to_matches.items():
         organism_to_best_match: Dict[str, Match] = {}
         organism_to_matches: Dict[str, List[Match]] = defaultdict(list)
@@ -198,7 +198,6 @@ def dump_to_fasta(db: database.models.DB, launch_folder: str, matches: List[Matc
             name = f"{query_record.organism}_{query_gene.locus_tag}_{query_iso_a.protein_id}"
             if isoforms_to_duplicates:
                 query_as_types = as_type.get_isoforms_as_types(db, isoforms_to_duplicates, query_iso_a.uuid, query_iso_b.uuid)
-                print(query_as_types)
                 name += "_" + "|".join(";".join(".".join(j) for j in i) for i in query_as_types)
             f.write(f">{name}\n")
             f.write(f"{query_iso_a.translation}\n")
@@ -216,16 +215,16 @@ def dump_to_fasta(db: database.models.DB, launch_folder: str, matches: List[Matc
                 hit_record = db.records[hit_gene.record_uuid]
                 locus_tag = hit_gene.locus_tag if hit_gene.locus_tag else hit_gene.gene_id
 
-                m.predicted_positive_probability
+                
 
-                name = f"{hit_record.organism}_{locus_tag}_{hit_iso_a.product}_{hit_iso_a.protein_id}"
+                name = f"{m.predicted_positive_probability:.4f}_{hit_record.organism}_{locus_tag}_{hit_iso_a.product}_{hit_iso_a.protein_id}"
                 if isoforms_to_duplicates:
                     hit_as_types = as_type.get_isoforms_as_types(db, isoforms_to_duplicates, hit_iso_a.uuid, hit_iso_b.uuid)
                     name += "_" + "|".join(";".join(".".join(j) for j in i) for i in hit_as_types)
                 f.write(f">{name}\n")
                 f.write(f"{hit_iso_a.translation}\n")
 
-                name = f"{hit_record.organism}_{locus_tag}_{hit_iso_b.product}_{hit_iso_b.protein_id}"
+                name = f"{m.predicted_positive_probability:.4f}_{hit_record.organism}_{locus_tag}_{hit_iso_b.product}_{hit_iso_b.protein_id}"
                 f.write(f">{name}\n")
                 f.write(f"{hit_iso_b.translation}\n")
         
@@ -253,6 +252,6 @@ def dump_to_fasta(db: database.models.DB, launch_folder: str, matches: List[Matc
                     f.write(f">{name}\n")
                     f.write(f"{hit_iso_a.translation}\n")
 
-                    name = f"{hit_record.organism}_{locus_tag}_{hit_iso_b.protein_id}"
+                    name = f"{m.predicted_positive_probability:.4f}_{hit_record.organism}_{locus_tag}_{hit_iso_b.protein_id}"
                     f.write(f">{hit_record.organism}_{locus_tag}_{hit_iso_b.protein_id}\n")
                     f.write(f"{hit_iso_b.translation}\n")
