@@ -54,14 +54,14 @@ p = pipeline.get_test_pipeline()
 
 file_db = filedb.FileDB.create(FILE_DB_PATH)
 detector = ml.Detector.load(DETECTOR_PATH)
-helpers.search(file_db, p, detector, ["NP_200130.1, NP_001078750.1"], blast_db, isoforms_to_duplicates=file_db.isoform_to_duplicates)
+helpers.search(file_db, p, detector, ["NP_200130.1, NP_001078750.1"], BLAST_DB, isoforms_to_duplicates=file_db.isoform_to_duplicates)
 ```
                                                                    
 Make single sequence mode search request
 
 ```
 
-helpers.search_custom(file_db, p, detector, gene_seq = gene_seq, iso1_seq = iso1_seq, iso2_seq = iso2_seq, blast_db_path = blast_db)
+helpers.search_custom(file_db, p, detector, gene_seq = GENE_SEQ, iso1_seq = ISO1_SEQ, iso2_seq = ISO2_SEQ, blast_db_path = BLAST_DB)
 
 ```
                                                                    
