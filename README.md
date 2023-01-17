@@ -18,6 +18,51 @@ The detailed description of the pipeline is provided in the paper "Catsnap: a us
 
 The online tool can be found at …
 
+## Requirements
+
+Python>=3.10, at least ~300 GB space, and more than 64 GB RAM
+
+```
+cd kd_splicing
+pip install -r requirements.txt
+```
+
+## How to
+
+Download database source files
+
+```
+python -m kd_splicing.database.download_refseq_genome
+python -m kd_splicing.database.download_genbank
+```
+
+Extract sequence files and build blast and sqllite db
+
+```
+python -m kd_splicing.database.extract
+```
+
+Make single search request
+
+```
+
+from kd_splicing import ml, helpers, pipeline,
+from kd_splicing.database import filedb
+
+p = pipeline.get_test_pipeline()
+
+file_db = filedb.FileDB.create(FILE_DB_PATH)
+detector = ml.Detector.load(DETECTOR_PATH)
+helpers.search(file_db, p, detector, ["NP_200130.1, NP_001078750.1"], blast_db, isoforms_to_duplicates=file_db.isoform_to_duplicates)
+```
+
+Start svelte frontend
+
+```
+npm run dev
+```
+
+
 ## CITATION
 
 If you find our work useful, please cite ...
