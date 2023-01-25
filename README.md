@@ -2,7 +2,7 @@
   <img src="https://github.com/konovalovdmitry/catsnap/blob/master/picture.PNG" "/>
 </figure>
 
-## ABOUT
+## About
 
 This repository contains the code of Catsnap – a tool to assess the conservation of alternative splicing. 
 
@@ -43,7 +43,7 @@ python -m kd_splicing.database.extract
 ```
 ## How to
 
-Make single ncbi accession mode search request.  Results will be written into kd_splicing/data/ folder. 
+Make single ncbi accession mode search request.  Results will be written into kd_splicing/data/ folder
 
 ```
 
@@ -65,7 +65,7 @@ helpers.search_custom(file_db, p, detector, gene_seq = GENE_SEQ, iso1_seq = ISO1
 
 ```
                                                                    
-Whole genome search. Depending on hardware can take a lot of time. 
+Whole genome search. Depending on hardware can take a lot of time
 ```
 python -m kd_splicing.full_run                                                            
 
