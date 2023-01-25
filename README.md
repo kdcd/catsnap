@@ -8,7 +8,7 @@ This repository contains the code of Catsnap – a tool to assess the conservati
 
 Amino acid sequences of alternative proteins, produced by alternatively spliced genes, were downloaded from [RefSeq](https://www.ncbi.nlm.nih.gov/refseq/) and [GenBank](https://www.ncbi.nlm.nih.gov/genbank/) databases.
 
-The user provides the RefSeq or GenBank accession numbers of the canonical and alternative protein isoforms (or their sequencies) and Catsnap [Blasts](https://blast.ncbi.nlm.nih.gov/Blast.cgi) them against its internal database of alternative proteins. The resulting output is then prelimenary organized in pairs of presumably canonical and alternative isoforms. 
+The user provides the RefSeq or GenBank accession numbers of two protein isoforms (or their sequencies) and Catsnap [Blasts](https://blast.ncbi.nlm.nih.gov/Blast.cgi) them against its internal database of alternative proteins. The resulting output is then prelimenary organized in pairs to be compared to the query.
 
 Catsnap looks for those prelimenary pairs which share the highest amino acid similarity with the query pair, especially in the regions affected by alternative splicing. This task is carried out by a logistic regression machine learning model, trained on 1,426 instances of conserved alternative splicing events. 
 
