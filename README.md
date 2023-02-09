@@ -16,7 +16,7 @@ Finally, Catsnap sorts the hit pairs by similarity to the query sequences. Hit p
 
 A detailed description of the pipeline is provided in the publication: Timofeyenko K, Konovalov D, Alexiou P, Kalyna M, Růžička K. Catsnap: a user-friendly algorithm for determining the conservation of protein variants reveals extensive parallelisms in the evolution of alternative splicing, https://doi.org/10.1111/nph.18799.
 
-The online version of the tool can be found at [hcatsnap.cesnet.cz](https://catsnap.cesnet.cz/). 
+The online version of the tool can be found at [catsnap.cesnet.cz](https://catsnap.cesnet.cz/). 
 
 ## Requirements
 
